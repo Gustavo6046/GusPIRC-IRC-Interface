@@ -27,65 +27,65 @@ from guspirc import IRCConnector
 
 def parsemsg(ircmsg, connector, ip, index):
 
-    # detects what channel is the last message's
-    try:
-        msgchan = ircmsg.split(" ")[2]
-        msgmode = ircmsg.split(" ")[1]
-        msgsrc  = ircmsg.split(" ")[0].strip(":")
-    except IndexError:
-        pass # ignore the message for now
-
-    print ircmsg
-
-    irc_split = ircmsg.split(" ")
-
-    if "ERROR" == msgmode or ("QUIT" == msgmode and botnick == ircmsg.split(" ")[0].strip(":")):
+    if "ERROR" == msgmode or ("QUIT" == msgmode and botnick == ircmsg.msgargs(" ")[0].strip(":")):
         return False
 
     if not "PRIVMSG" in msgmode:
         return True
 
-    if ":!say" in ircmsg and not ":!sayabout" in ircmsg:
-        say_split = ircmsg.split ("!say ")
-        connector.sendmessage(msgchan, say_split[1])
-        connector.sendmessage(master, "Message sent: " + say_split[1])
+# detects message details
+    try:
+        msgargs = ircmsg.msgargs(":")[2].msgargs(" ")
+        msgchan = ircmsg.msgargs(" ")[2]
+        msgmode = ircmsg.msgargs(" ")[1]
+        msgsrc  = ircmsg.msgargs(" ")[0].strip(":")
+        msgnick = ircmsg.msgargs(" ")[0].msgargs("!")[0].strip(":")
+    except IndexError:
+        pass # ignore the message for now
 
-# authenticating command
-    if "!auth" in ircmsg:
-        cmdargs = ircmsg.split(":")[2].split(" ")
-        connector.sendmessage("NickServ", "IDENTIFY " + password)
-        connector.sendmessage(ircmsg.split(":")[1].split("@")[0], "Authed!")
+    if "!say" == msgargs[0]:
+        say_msgargs = ircmsg.msgargs ("!say ")
+        connector.sendmessage(msgchan, say_msgargs[1])
+        connector.sendmessage(master, "Message sent: " + say_msgargs[1])
+        return True
 
 # adds messages to lexical repository
-    if(ircmsg.split(" ")[3][1:2] != "!" and
-    ircmsg.split(" ")[0] != botnick + "@~" + uname + "!" + ip and
-    ircmsg.split(" ")[0] != botnick + "!~" + uname + "@unaffiliated/" + uname):
-        split = ircmsg.split(":")[2].split(" ")
-        for x in xrange(1, len(split) - 1):
-            if split[x-1] == split[x] or split[x-1] == split[x+1] or split[x+1] == split[x]:
+    if(msgargs(" ")[3][1:2] != "!" and
+    msgargs(" ")[0] != botnick + "@~" + uname + "!" + ip and
+    msgargs(" ")[0] != botnick + "!~" + uname + "@unaffiliated/" + uname):
+        for x in xrange(1, len(msgargs) - 1):
+            if msgargs[x-1] == msgargs[x] or msgargs[x-1] == msgargs[x+1] or msgargs[x+1] == msgargs[x]:
                 continue
-            tree.addmarkovkeyword(split[x-1], split[x], split[x+1])
-            print "%s,%s,%s" % (split[x-1], split[x], split[x+1])
+            tree.addmarkovkeyword(msgargs[x-1], msgargs[x], msgargs[x+1])
+            print "%s,%s,%s" % (msgargs[x-1], msgargs[x], msgargs[x+1])
+        return True
+
+# authenticating command
+    if "!auth" == msgargs[0]:
+        connector.sendmessage("NickServ", "IDENTIFY " + password)
+        connector.sendmessage(msgnick, "Authed!")
+        return True
 
 # handles channel parting and joining
-    if ":!join" in ircmsg != -1:
-        str_split = ircmsg.split(":")[2].split(" ")
-        if len(str_split) < 2:
+    if "!join" == msgargs[0]:
+        if len(_msgargs) < 2:
             connector.sendmessage(msgchan, "Invalid number of arguments!")
         try:
-            connector.sendcommand("JOIN " + str_split[1] + " " + str_split[2])
+            connector.sendcommand("JOIN %s :%s" % (msgargs[1], " ".join(msgargs[2:])))
         except IndexError:
-            connector.sendcommand("JOIN " + str_split[1])
+            connector.sendcommand("JOIN %s" % (msgargs[1]))
+        return True
 
-    if ":!part" in ircmsg:
-        str_split = ircmsg.split(":")[2].split(" ")
-        if len(str_split) < 2:
+    if "!part" == msgargs[0]:
+        if len(msgargs) < 2:
             connector.sendmessage(msgchan, "Invalid number of arguments!")
             return True
+
         try:
-            connector.sendcommand("PART " + str_split[1] + " " + str_split[2])
+            connector.sendcommand("PART %s :%s" % (msgargs[1], " ".join(msgargs[2:])))
         except IndexError:
-            connector.sendcommand("PART " + str_split[1])
+            connector.sendcommand("PART %s" % (msgargs[1]))
+        return True
 
 # Help message
     if ":!commands" in ircmsg or ircmsg.find(":!help") != -1 or ircmsg.find(":!list") != -1:
@@ -105,83 +105,84 @@ def parsemsg(ircmsg, connector, ip, index):
         connector.sendmessage(msgchan, "() means the command is only for the bot's owner.")
         connector.sendmessage(msgchan, "For more info refer to irc.freenode.net #gusbot")
         connector.sendmessage(msgchan, "Thank you for reading and not making a mess!")
+        return True
 
 # tells who is the owner
-    if ":!owner" in ircmsg:
-        connector.sendmessage (msgchan, "My owner is: %s%s" % (master))
+    if "!owner" == msgargs[0]:
+        connector.sendmessage (msgchan, "My owner is: %s" % (master))
+        return True
 
 # word count
-    if ":!wordcount" in ircmsg:
-        connector.sendmessage (msgchan, "There are %s words.%s" % (str(len(tree.allwords))))
+    if "!wordcount" == msgargs[0]:
+        connector.sendmessage (msgchan, "There are %s words." % (str(len(tree.allwords))))
+        return True
 
 # change nick
-    if ":!nick" in ircmsg and master in ircmsg.split(" ")[0]:
-        str_split = ircmsg.split("!nick ")
-        connector.sendcommand("NICK " + str_split[1])
-        connector.sendmessage (msgchan, "Nick changed to " + str_split [1] + ".")
+    if "!nick" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+        connector.sendcommand("NICK %s" % str_msgargs[1])
+        connector.sendmessage (msgchan, "Nick changed to %s." % (str_msgargs [1]))
+        return True
 
 # quits the network
-    if ":!quit" in ircmsg and master in ircmsg.split(" ")[0]:
-        connector.sendcommand("QUIT")
-        return
+    if "!quit" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+        try:
+            connector.sendcommand("QUIT :%s" % (" ".join(msgargs[1:])))
+        except IndexError:
+            connector.sendcommand("QUIT :A GusPIRC bot leaves the network. So sad, one less in activity!")
+        return False
 
 # say about some topic
-    if ":!sayabout" in ircmsg:
-        str_split = ircmsg.split(":")[2].split(" ")
-        if len(str_split) < 2:
+    if "!sayabout" == msgargs[0]:
+        if len(msgargs) < 2:
             connector.sendmessage(msgchan, "What topic?")
         else:
-            if tree.composephrase(str_split[1]) == None:
+            if tree.composephrase(str_msgargs[1]) == None:
                 connector.sendmessage(msgchan, "No such topic in my list, sorry!")
             else:
-                connector.sendmessage (msgchan, tree.composephrase(str_split[1]))
+                connector.sendmessage (msgchan, tree.composephrase(str_msgargs[1]))
+        return True
 
 # saves current Markov chain
-    if ":!savedefs" in ircmsg and master in ircmsg.split(" ")[0]:
-        str_split = ircmsg.split("!savedefs ")[1].split(" ")
-        if len(str_split) == 0:
-            connector.sendmessage (msgchan, "No argument given! Aborting...")
-            return True
-        open(str_split[1], "w").write(dumps(str_split[0]))
-        connector.sendmessage (msgchan, "Sent  to file " + str_split[0] + " with success!")
+    if "!savedefs" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+        if len(msgargs) < 2:
+            connector.sendmessage (msgchan, "Not enough arguments!")
+        open(msgargs[1], "w").write(dumps(str_msgargs[0]))
+        connector.sendmessage (msgchan, "Sent  to file " + str_msgargs[0] + " with success!")
+        return True
 
 # loads current Markov chain
-    if ":!loaddefs" in ircmsg and master in ircmsg.split(" ")[0]:
-        str_split = ircmsg.split("!loaddefs ")[1].split(" ")
-        if len(str_split) == 0:
+    if "!loaddefs" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+        if len(str_msgargs) == 0:
             connector.sendmessage (msgchan, "No argument given! Aborting...")
             return True
-        tree = loads(open(str_split[0], "w").read)
+        tree = loads(open(str_msgargs[0], "w").read)
 
 # messages all source to messager
-    if ":!source" in ircmsg:
-        othernick = ircmsg.split("!")[0][1:]
+    if "!source" == msgargs[0]:
         mysource = open("__main__.py", "r")
         x = "\b"
         while x != "":
             x = mysource.readline()
-            connector.sendmessage(othernick, x)
+            connector.sendmessage(msgnick, x)
             sleep(1.0/(8.0/5.0))
         mysource.close()
 
 # evaluates expression
-    if ":!eval" in ircmsg:
-        args = ircmsg.split(":")[2].split(" ")
-        args.pop(0)
+    if "!eval" == msgargs[0]:
         if len(args) < 2:
             connector.sendmessage(msgchan, "Invalid number of arguments!")
             return True
         try:
-            connector.sendmessage(msgchan, "Result: " + str(literal_eval(" ".join(args))))
+            connector.sendmessage(msgchan, "Result: " + str(literal_eval(" ".join(msgargs[1:]))))
         except (ValueError, SyntaxError):
             connector.sendmessage(msgchan, "Incorrect equation string!")
 
 # executes command
-    if ":!raw" in ircmsg and master in ircmsg.split(" ")[0]:
-        connector.sendcommand(ircmsg.split(":!raw")[1])
+    if "!raw" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+        connector.sendcommand(ircmsg.msgargs(":!raw")[1])
 
 # flushes the command queue
-    if ":!flushqueue" in ircmsg:
+    if "!flushqueue" == msgargs[0]:
         print "Flushed %i messages and IRC commands." % (len(connector.connections[index][1]))
         savemsgs = []
         for i in connector.connections[index][1]:
