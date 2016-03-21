@@ -20,22 +20,32 @@ class IRCConnector(object):
         if not hasattr(channels, "__iter__"):
             raise TypeError("channels is not iterable!")
 
+        print "Iteration check done!"
+
         if channels == (''):
             channels = ("#%shelp" % (nickname))
 
-        socket = [socket.socket(socket.AF_INET, socket.SOCK_STREAM), IterableQueue()]
-
-        socket.connect((server, port))
+        print "Channel defaulting done!"
 
         if socketindexbyaddress(server, port) != -1:
             print "Warning: Trying to append socket of existing address!"
             return False
+
+        print "Check for duplicates done!"
+
+        socket = [socket.socket(socket.AF_INET, socket.SOCK_STREAM), IterableQueue()]
+
+        socket[0].connect((server, port))
+
+        print "Connected socket!"
 
         socket.sendall("USER %s * * :%s\r\n" % (ident, realname))
         if not has_account:
             socket.sendall("NICK %s\r\n" % (account_name))
         else:
             socket.sendall("NICK %s\r\n" % (nickname))
+
+        print "Sent first commands to socket!"
 
         # function used for breaking through all loops
         def waituntilnotice(self):
@@ -59,26 +69,36 @@ class IRCConnector(object):
                 else:
                     y = (x)
 
-
                 for z in y:
                     try:
-                        compdata = z.split(" ")[1]
+                        compdata  = z.split(" ")[1]
+                        compdata2 = z.split(" ")[0].split("@")[0].strip(":")
                     except IndexError:
                         continue
-                    if compdata == "NOTICE":
+                    if compdata == "NOTICE" and compdata2 == "NickServ":
                         return
 
         waituntilnotice()
 
+        print "NickServ Notice found!"
+
         if not has_account:
             socket.sendall("PRIVMSG ChanServ :REGISTER %s %s\r\n" % (password, email))
+            print "Made account!"
+
         socket.sendall("NICK %s\r\n" % (nickname))
         socket.sendall("PRIVMSG ChanServ :IDENTIFY %s %s\r\n" % (account_name, password))
+
+        print "Authenticated!"
 
         for x in channels:
             socket.sendall("JOIN %s\r\n" % (x))
 
+        print "Joined channels!"
+
         connections.append([socket, IterableQueue(), IterableQueue()])
+
+        print "Added to connections!"
 
         return True
 
@@ -133,9 +153,10 @@ class IRCConnector(object):
         return self.connections[index][1].get()
 
     def socketindexbyaddress(address, port = 6667):
-        for x in self.connections:
-            if x.getsockname() == (address, port):
-                return self.connections.index(x)
+        if self.connections != []:
+            for x in self.connections:
+                if tuple(x.getsockname()[:2]) == (address, port):
+                    return self.connections.index(x)
         return -1
 
     def receiveallmessages(index = 0):
