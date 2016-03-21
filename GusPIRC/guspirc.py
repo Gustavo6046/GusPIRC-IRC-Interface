@@ -5,12 +5,16 @@
 from iterqueue import IterableQueue
 import socket
 from time import sleep
+from threading import Thread
 
 class IRCConnector(object):
 
     def __init__(self):
         self.connections = []
-        self.mainloop()
+
+        t = Thread(target=self.mainloop)
+
+        t.start()
 
     def addConnectionSocket(self, server, port = 6667, ident = "MadeInGusPIRC", realname = "A GusPIRC Bot", nickname = "GusPIRC Bot", password = "", email = "email@address.com", account_name = "", has_account = False, channels = ("")):
         if not hasattr(channels, "__iter__"):
