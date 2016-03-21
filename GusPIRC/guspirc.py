@@ -117,6 +117,7 @@ class IRCConnector(object):
                     msg = x[2].get()
                     x[0].sendall(msg)
                     if msg.split(" ")[0] == "QUIT":
+                        self.connections[self.connections.index(x)][0].close()
                         self.connections.remove(x)
 
     def sendcommand(self, connectionindex = 0, command = ""):
