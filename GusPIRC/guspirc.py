@@ -2,19 +2,22 @@
 #
 # The simple, event-driven (main loop), low-level IRC library everyone wants
 
-from iterqueue import IterablQueue
+from iterqueue import IterableQueue
 import socket
 from time import sleep
 
 class IRCConnector(object):
 
-    def __init__():
+    def __init__(self):
         self.connections = []
         self.mainloop()
 
-    def addConnectionSocket(server, port = 6667, ident = "MadeInGusPIRC", realname = "A GusPIRC Bot", nickname = "GusPIRC Bot", password = "", email = "email@address.com", account_name = "", has_account = False, channels = ("#%shelp" % (nickname))):
+    def addConnectionSocket(self, server, port = 6667, ident = "MadeInGusPIRC", realname = "A GusPIRC Bot", nickname = "GusPIRC Bot", password = "", email = "email@address.com", account_name = "", has_account = False, channels = ("")):
         if not hasattr(channels, "__iter__"):
             raise TypeError("channels is not iterable!")
+
+        if channels == (''):
+            channels = ("#%shelp" % (nickname))
 
         socket = [socket.socket(socket.AF_INET, socket.SOCK_STREAM), IterableQueue()]
 
@@ -31,7 +34,7 @@ class IRCConnector(object):
             socket.sendall("NICK %s\r\n" % (nickname))
 
         # function used for breaking through all loops
-        def waituntilnotice():
+        def waituntilnotice(self):
             buffering = ""
             while True:
                 x = socket.recv(4096)
@@ -75,7 +78,7 @@ class IRCConnector(object):
 
         return True
 
-    def mainloop():
+    def mainloop(self):
         while True:
             for x in self.connections:
 
@@ -112,16 +115,16 @@ class IRCConnector(object):
                     if msg.split(" ")[0] == "QUIT":
                         self.connections.remove(x)
 
-    def sendcommand(connectionindex = 0, command = ""):
+    def sendcommand(self, connectionindex = 0, command = ""):
         connections[connectionindex][2].put("%s\r\n"% (command))
 
-    def sendmessage(connectionindex = 0, target = "ChanServ", message = "Error: No message argument provided to bot!"):
+    def sendmessage(self, connectionindex = 0, target = "ChanServ", message = "Error: No message argument provided to bot!"):
         connections[connectionindex][2].put("PRIVMSG %s :%s\r\n" % (target, message))
 
-    def disconnect(connectionindex = 0, message = "a GusPirc bot: The simplest Python low-level IRC interface"):
+    def disconnect(self, connectionindex = 0, message = "a GusPirc bot: The simplest Python low-level IRC interface"):
         connections[connectionindex][2].put("QUIT :%s\r\n") % (message)
 
-    def receivelatestmessage(index = 0):
+    def receivelatestmessage(self, index = 0):
         return self.connections[index][1].get()
 
     def socketindexbyaddress(address, port = 6667):
