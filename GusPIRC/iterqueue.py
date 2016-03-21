@@ -1,13 +1,21 @@
-# Special thanks to StackOverflow user RaymondHettinger for contributing this solution! :D
-
-from Queue import Queue
+from Queue import Queue, Empty
 
 class IterableQueue(Queue):
 
-    _sentinel = object()
+    pastitems = []
 
     def __iter__(self):
-        return iter(self.get, self._sentinel)
+        return self
+
+    def next(self):
+        x = self.get()
+        self.pastitems.append(x)
+        try:
+            self.put(self.get())
+        except Empty:
+            close()
+        return x
 
     def close(self):
-        self.put(self._sentinel)
+        for x in pastitems:
+            self.put(x)
