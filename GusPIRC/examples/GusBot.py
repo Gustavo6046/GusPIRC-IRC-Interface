@@ -27,9 +27,6 @@ from guspirc import IRCConnector
 
 def parsemsg(ircmsg, connector, ip, index):
 
-    if "PING" == ircmsg.split(" ")[0]:
-        connector.sendcommand("PONG :%s%s" % (ircmsg.split(":")[1]))
-
     # detects what channel is the last message's
     try:
         msgchan = ircmsg.split(" ")[2]
@@ -103,6 +100,7 @@ def parsemsg(ircmsg, connector, ip, index):
         connector.sendmessage(msgchan, "!eval . . . . . : Evaluates a expression. Algebra not supported.")
         connector.sendmessage(msgchan, "!raw . . . . . .: Executes a IRC command. ()")
         connector.sendmessage(msgchan, "!flushq . . . . : Flushes message queue")
+        connector.sendmessage(msgchan, "!join and !part : Joins and parts channels respectively")
         connector.sendmessage(msgchan, " ")
         connector.sendmessage(msgchan, "() means the command is only for the bot's owner.")
         connector.sendmessage(msgchan, "For more info refer to irc.freenode.net #gusbot")
@@ -203,21 +201,17 @@ if __name__ == "__main__":
     connector = IRCConnector()
     print "Connector defined!"
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect("google.com", 0)
-    ip = ip.getsockname()[0]
-    print "Host IP determined!"
-    s.close()
+    ip = [l for l in ([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")][:1], [[(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) if l][0][0]
 
     print "Connecting to servers!"
 
-    connector.addConnectionSocket(server="irc.freenode.org", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#botters-test", "#botters", "##hardware", "#grafx2"))
-    connector.addConnectionSocket(server="irc.zandronum.com", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#bottest", "#botspam"))
+    connector.addConnectionSocket(server="irc.freenode.org", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#botters-test", "#botters", "##hardware", "#grafx2"), authnumeric=376)
+    connector.addConnectionSocket(server="irc.zandronum.com", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#bottest", "#botspam"), authnumeric=267)
 
     print "Added loop for exiting!"
 
     while True:
         for i in xrange(len(connector.connections) - 1):
-            for x in connector.receiveAllMessages(i):
+            for x in connector.receiveallmessages(i):
                 if parsemsg(x, connector, ip, i) == False:
                     sys.exit(0)
