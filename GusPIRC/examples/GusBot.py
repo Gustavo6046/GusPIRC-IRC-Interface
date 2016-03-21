@@ -195,15 +195,26 @@ def parsemsg(ircmsg, connector, ip, index):
 
 if __name__ == "__main__":
 
+    print "Defining variables!"
+
     tree = MarkovChain()
+    print "Markov chain defined!"
+
     connector = IRCConnector()
-    ip = socket.socket(socket.AF_INET, socket.SOCK_DGRAM).getaddrinfo("https://google.com", 0)[0]
+    print "Connector defined!"
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect("google.com", 0)
+    ip = ip.getsockname()[0]
+    print "Host IP determined!"
+    s.close()
 
     print "Connecting to servers!"
 
-    # Edit the following parameters to customize and determine the bot!
-    connector.addConnectionSocket(server="irc.freenode.org", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password="<hidden you know why>", email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#botters-test", "#botters", "##hardware", "#grafx2"))
-    connector.addConnectionSocket(server="irc.zandronum.com", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password="<hidden you know why>", email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#bottest", "#botspam"))
+    connector.addConnectionSocket(server="irc.freenode.org", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#botters-test", "#botters", "##hardware", "#grafx2"))
+    connector.addConnectionSocket(server="irc.zandronum.com", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#bottest", "#botspam"))
+
+    print "Added loop for exiting!"
 
     while True:
         for i in xrange(len(connector.connections) - 1):
