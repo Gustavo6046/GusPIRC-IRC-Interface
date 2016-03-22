@@ -23,36 +23,41 @@ from threading import Thread
 from ujson import dumps
 from ujson import loads
 from markovclasses import *
-from guspirc import IRCConnector
+from guspirc import IRCConnector, log
 
 def parsemsg(ircmsg, connector, ip, index):
 
-    if "ERROR" == msgmode or ("QUIT" == msgmode and botnick == ircmsg.msgargs(" ")[0].strip(":")):
-        return False
-
-    if not "PRIVMSG" in msgmode:
-        return True
+    log("Parsing message!")
 
 # detects message details
     try:
-        msgargs = ircmsg.msgargs(":")[2].msgargs(" ")
-        msgchan = ircmsg.msgargs(" ")[2]
-        msgmode = ircmsg.msgargs(" ")[1]
-        msgsrc  = ircmsg.msgargs(" ")[0].strip(":")
-        msgnick = ircmsg.msgargs(" ")[0].msgargs("!")[0].strip(":")
+        msgargs = ircmsg.split(":")[2].split(" ")
+        msgchan = ircmsg.split(" ")[2]
+        msgmode = ircmsg.split(" ")[1]
+        msgsrc  = ircmsg.split(" ")[0].strip(":")
+        msgnick = ircmsg.split(" ")[0].split("!")[0].strip(":")
     except IndexError:
         pass # ignore the message for now
 
+    try:
+        if not "PRIVMSG" == msgmode:
+            return True
+        log("%s %s %s :%s" % (msgsrc, msgmode, msgchan, msgargs))
+    except UnboundLocalError:
+        return True
+
+    if "ERROR" == msgmode or ("QUIT" == msgmode and connector.connections[index][4] == ircmsg.msgargs(" ")[0].strip(":")):
+        return False
+
     if "!say" == msgargs[0]:
-        say_msgargs = ircmsg.msgargs ("!say ")
-        connector.sendmessage(msgchan, say_msgargs[1])
-        connector.sendmessage(master, "Message sent: " + say_msgargs[1])
+        connector.sendmessage(index, msgchan, " ".join(say_msgargs[1:]))
+        connector.sendmessage(index, connector.connections[index][3], "Message sent: %s" % " ".join(say_msgargs[1:]))
         return True
 
 # adds messages to lexical repository
-    if(msgargs(" ")[3][1:2] != "!" and
-    msgargs(" ")[0] != botnick + "@~" + uname + "!" + ip and
-    msgargs(" ")[0] != botnick + "!~" + uname + "@unaffiliated/" + uname):
+    if(msgargs[0][0:1] != "!" and
+    msgsrc != connector.connections[index][4] + "@~" + connector.connections[index][5] + "!" + ip and
+    msgsrc != connector.connections[index][4] + "!~" + connector.connections[index][5] + "@unaffiliated/" + connector.connections[index][5]):
         for x in xrange(1, len(msgargs) - 1):
             if msgargs[x-1] == msgargs[x] or msgargs[x-1] == msgargs[x+1] or msgargs[x+1] == msgargs[x]:
                 continue
@@ -60,56 +65,50 @@ def parsemsg(ircmsg, connector, ip, index):
             print "%s,%s,%s" % (msgargs[x-1], msgargs[x], msgargs[x+1])
         return True
 
-# authenticating command
-    if "!auth" == msgargs[0]:
-        connector.sendmessage("NickServ", "IDENTIFY " + password)
-        connector.sendmessage(msgnick, "Authed!")
-        return True
-
 # handles channel parting and joining
     if "!join" == msgargs[0]:
         if len(_msgargs) < 2:
-            connector.sendmessage(msgchan, "Invalid number of arguments!")
+            connector.sendmessage(index, msgchan, "Invalid number of arguments!")
         try:
-            connector.sendcommand("JOIN %s :%s" % (msgargs[1], " ".join(msgargs[2:])))
+            connector.sendcommand(index, "JOIN %s :%s" % (msgargs[1], " ".join(msgargs[2:])))
         except IndexError:
-            connector.sendcommand("JOIN %s" % (msgargs[1]))
+            connector.sendcommand(index, "JOIN %s" % (msgargs[1]))
         return True
 
     if "!part" == msgargs[0]:
         if len(msgargs) < 2:
-            connector.sendmessage(msgchan, "Invalid number of arguments!")
+            connector.sendmessage(index, msgchan, "Invalid number of arguments!")
             return True
 
         try:
-            connector.sendcommand("PART %s :%s" % (msgargs[1], " ".join(msgargs[2:])))
+            connector.sendcommand(index, "PART %s :%s" % (msgargs[1], " ".join(msgargs[2:])))
         except IndexError:
-            connector.sendcommand("PART %s" % (msgargs[1]))
+            connector.sendcommand(index, "PART %s" % (msgargs[1]))
         return True
 
 # Help message
-    if ":!commands" in ircmsg or ircmsg.find(":!help") != -1 or ircmsg.find(":!list") != -1:
-        connector.sendmessage(msgchan, "Commands:")
-        connector.sendmessage(msgchan, "!sayabout topic : Say stuff based on the topic")
-        connector.sendmessage(msgchan, "!owner . . . . .: Tells who owns this bot")
-        connector.sendmessage(msgchan, "!nick . . . . . : Changes the bot's nickname ()")
-        connector.sendmessage(msgchan, "!savedefs . . . : Saves the current lexical tree in owner's HDD ()")
-        connector.sendmessage(msgchan, "!wordcount . . .: How many words are there in the Markov list?")
-        connector.sendmessage(msgchan, "!loaddefs . . . : Loads the lexical tree from file in owner's HDD ()")
-        connector.sendmessage(msgchan, "!source . . . . : Messages the source to the command executor")
-        connector.sendmessage(msgchan, "!eval . . . . . : Evaluates a expression. Algebra not supported.")
-        connector.sendmessage(msgchan, "!raw . . . . . .: Executes a IRC command. ()")
-        connector.sendmessage(msgchan, "!flushq . . . . : Flushes message queue")
-        connector.sendmessage(msgchan, "!join and !part : Joins and parts channels respectively")
-        connector.sendmessage(msgchan, " ")
-        connector.sendmessage(msgchan, "() means the command is only for the bot's owner.")
-        connector.sendmessage(msgchan, "For more info refer to irc.freenode.net #gusbot")
-        connector.sendmessage(msgchan, "Thank you for reading and not making a mess!")
+    if "!commands" == msgargs[0] or "!help" == msgargs[0] or "!list" == msgargs[0]:
+        connector.sendmessage(index, msgchan, "Commands:")
+        connector.sendmessage(index, msgchan, "!sayabout topic : Say stuff based on the topic")
+        connector.sendmessage(index, msgchan, "!owner . . . . .: Tells who owns this bot")
+        connector.sendmessage(index, msgchan, "!nick . . . . . : Changes the bot's nickname ()")
+        connector.sendmessage(index, msgchan, "!savedefs . . . : Saves the current lexical tree in owner's HDD ()")
+        connector.sendmessage(index, msgchan, "!wordcount . . .: How many words are there in the Markov list?")
+        connector.sendmessage(index, msgchan, "!loaddefs . . . : Loads the lexical tree from file in owner's HDD ()")
+        connector.sendmessage(index, msgchan, "!source . . . . : Messages the source to the command executor")
+        connector.sendmessage(index, msgchan, "!eval . . . . . : Evaluates a expression. Algebra not supported.")
+        connector.sendmessage(index, msgchan, "!raw . . . . . .: Executes a IRC command. ()")
+        connector.sendmessage(index, msgchan, "!flushq . . . . : Flushes message queue")
+        connector.sendmessage(index, msgchan, "!join and !part : Joins and parts channels respectively")
+        connector.sendmessage(index, msgchan, " ")
+        connector.sendmessage(index, msgchan, "() means the command is only for the bot's owner.")
+        connector.sendmessage(index, msgchan, "For more info refer to irc.freenode.net #gusbot")
+        connector.sendmessage(index, msgchan, "Thank you for reading and not making a mess!")
         return True
 
 # tells who is the owner
     if "!owner" == msgargs[0]:
-        connector.sendmessage (msgchan, "My owner is: %s" % (master))
+        connector.sendmessage (msgchan, "My owner is: %s" % (connector.connections[index][3]))
         return True
 
 # word count
@@ -118,32 +117,33 @@ def parsemsg(ircmsg, connector, ip, index):
         return True
 
 # change nick
-    if "!nick" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
-        connector.sendcommand("NICK %s" % str_msgargs[1])
+    if "!nick" == msgargs[0] and connector.connections[index][3] == msgnick:
+        connector.sendcommand(index, "NICK %s" % str_msgargs[1])
         connector.sendmessage (msgchan, "Nick changed to %s." % (str_msgargs [1]))
         return True
 
 # quits the network
-    if "!quit" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+    if "!quit" == msgargs[0] and connector.connections[index][3] == msgnick:
         try:
-            connector.sendcommand("QUIT :%s" % (" ".join(msgargs[1:])))
+            connector.sendcommand(index, "QUIT :%s" % (" ".join(msgargs[1:])))
         except IndexError:
-            connector.sendcommand("QUIT :A GusPIRC bot leaves the network. So sad, one less in activity!")
+            connector.sendcommand(index, "QUIT :A GusPIRC bot leaves the network. So sad, one less in activity!")
+        connector.disconnect(i, " ".join(msgargs[1:]))
         return False
 
 # say about some topic
     if "!sayabout" == msgargs[0]:
         if len(msgargs) < 2:
-            connector.sendmessage(msgchan, "What topic?")
+            connector.sendmessage(index, msgchan, "What topic?")
         else:
             if tree.composephrase(str_msgargs[1]) == None:
-                connector.sendmessage(msgchan, "No such topic in my list, sorry!")
+                connector.sendmessage(index, msgchan, "No such topic in my list, sorry!")
             else:
                 connector.sendmessage (msgchan, tree.composephrase(str_msgargs[1]))
         return True
 
 # saves current Markov chain
-    if "!savedefs" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+    if "!savedefs" == msgargs[0] and connector.connections[index][3] == msgnick:
         if len(msgargs) < 2:
             connector.sendmessage (msgchan, "Not enough arguments!")
         open(msgargs[1], "w").write(dumps(str_msgargs[0]))
@@ -151,7 +151,7 @@ def parsemsg(ircmsg, connector, ip, index):
         return True
 
 # loads current Markov chain
-    if "!loaddefs" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
+    if "!loaddefs" == msgargs[0] and connector.connections[index][3] == msgnick:
         if len(str_msgargs) == 0:
             connector.sendmessage (msgchan, "No argument given! Aborting...")
             return True
@@ -163,23 +163,23 @@ def parsemsg(ircmsg, connector, ip, index):
         x = "\b"
         while x != "":
             x = mysource.readline()
-            connector.sendmessage(msgnick, x)
+            connector.sendmessage(index, msgnick, x)
             sleep(1.0/(8.0/5.0))
         mysource.close()
 
 # evaluates expression
     if "!eval" == msgargs[0]:
         if len(args) < 2:
-            connector.sendmessage(msgchan, "Invalid number of arguments!")
+            connector.sendmessage(index, msgchan, "Invalid number of arguments!")
             return True
         try:
-            connector.sendmessage(msgchan, "Result: " + str(literal_eval(" ".join(msgargs[1:]))))
+            connector.sendmessage(index, msgchan, "Result: " + str(literal_eval(" ".join(msgargs[1:]))))
         except (ValueError, SyntaxError):
-            connector.sendmessage(msgchan, "Incorrect equation string!")
+            connector.sendmessage(index, msgchan, "Incorrect equation string!")
 
 # executes command
-    if "!raw" == msgargs[0] and master in ircmsg.msgargs(" ")[0]:
-        connector.sendcommand(ircmsg.msgargs(":!raw")[1])
+    if "!raw" == msgargs[0] and connector.connections[index][3] == msgnick:
+        connector.sendcommand(index, ircmsg.msgargs(":!raw")[1])
 
 # flushes the command queue
     if "!flushqueue" == msgargs[0]:
@@ -206,13 +206,16 @@ if __name__ == "__main__":
 
     print "Connecting to servers!"
 
-    connector.addConnectionSocket(server="irc.freenode.org", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#botters-test", "#botters", "##hardware", "#grafx2"), authnumeric=376)
+    #connector.addConnectionSocket(server="irc.freenode.org", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#botters-test", "#botters", "##hardware", "#grafx2"), authnumeric=376)
     connector.addConnectionSocket(server="irc.zandronum.com", port=6667, ident="GusUtils", realname="GusBot(tm) the property of Gustavo6046", nickname="GusBot", password=open("password.txt", "r").read().strip("\n"), email="gugurehermann@gmail.com", account_name="GusBot", has_account=True, channels=("#bottest", "#botspam"), authnumeric=267)
 
-    print "Added loop for exiting!"
+    print "Main Server IO loop started"
 
     while True:
-        for i in xrange(len(connector.connections) - 1):
+        for i in xrange(len(connector.connections)):
+            connector.mainloop(i)
             for x in connector.receiveallmessages(i):
+                print x
                 if parsemsg(x, connector, ip, i) == False:
                     sys.exit(0)
+            connector.relayoq(i)
