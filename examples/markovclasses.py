@@ -1,3 +1,6 @@
+from random import choice
+
+
 class MarkovKeyword(object):
 
     def __init__(self, thiskeyword):
@@ -8,13 +11,13 @@ class MarkovKeyword(object):
         return self.nextkeywords
 
     def getnextword(self):
-        return choice(nextkeywords)
+        return choice(self.nextkeywords)
 
     def addkeyword(self, other):
         self.nextkeywords.append(MarkovKeyword(other))
 
-class MarkovChain(object):
 
+class MarkovChain(object):
     def addmarkovkeyword(self, before, name, next_):
         found = False
         pkw = None
@@ -33,7 +36,7 @@ class MarkovChain(object):
                 self.allwords.append(pkw)
                 pkw.nextkeywords.append(x)
 
-        if found == False:
+        if not found:
             nkw = MarkovKeyword(name)
             self.keywords.append(nkw)
             self.allwords.append(nkw)
@@ -45,11 +48,12 @@ class MarkovChain(object):
 
     def composephrase(self, starter):
         found = None
+        x = None
         for x in self.allwords:
             if x.thiskeyword == starter:
                 found = x
 
-        if found == None:
+        if found is None:
             return None
 
         i = x
