@@ -1,3 +1,10 @@
+from Queue import Empty
+from socket import SOCK_STREAM, socket, AF_INET, error
+from threading import Thread
+from time import sleep, strftime
+
+from iterqueue import IterableQueue
+
 docs = """
 __________
 |GusPIRC |
@@ -23,21 +30,26 @@ Remember, this is a IRC INTERFACE, not a IRC BOT!
 
 """
 
+
 # GusPIRC
 #
 # The simple, event-driven (main loop), low-level IRC library everyone wants
 
-from iterqueue import IterableQueue
-import socket
-from time import sleep,  strftime
-from Queue import Empty
+
+def clearlog():
+    logfile = open("..\log.txt", "w")
+    logfile.write("\n")
+    logfile.close()
+
 
 def log(msg):
-    logfile = open("log.txt", "a")
-    x = "[%s] %s\n" % (strftime("%A %d - %X : GMT %Z"), msg)
+    msg = msg.encode("utf-8")
+    logfile = open("..\log.txt", "a")
+    x = u"[{0}]: {1}".format(strftime("%A %d - %X : GMT %Z").encode('utf-8'), msg)
     logfile.write(x)
     print x
     logfile.close()
+
 
 class IRCConnector(object):
     """The main connector with the IRC world!
@@ -45,17 +57,36 @@ class IRCConnector(object):
     It must only be used once!
 
     And it's __init__ won't connect to a server by itself. Use
-    addConnectionSocket() function for this!"""
+    addconnectionsocket() function for this!"""
 
     def __init__(self):
         """Are you really willing to call this?
 
         I though this was called automatically when you started the
         class variable!"""
-        self.connections = []
 
-    def addConnectionSocket(self, server, port = 6667, ident = "GusPIRC", realname = "A GusPIRC Bot", nickname = "GusPIRC Bot", password = "",
-    email = "email@address.com", account_name = "", has_account = False, channels = None, authnumeric = 001, master = ""):
+        self.connections = []
+        self.loopthreads = []
+
+        for n in xrange(len(self.connections)):
+            self.loopthreads.append(Thread(target=self.mainloop, args=(n,)))
+
+        for x in self.loopthreads:
+            x.start()
+
+    def addconnectionsocket(self,
+                            server,
+                            port=6667,
+                            ident="GusPIRC",
+                            realname="A GusPIRC Bot",
+                            nickname="GusPIRC Bot",
+                            password="",
+                            email="email@address.com",
+                            account_name="",
+                            has_account=False,
+                            channels=None,
+                            authnumeric=001,
+                            master=""):
         """Adds a IRC connection.
 
         Only call this ONCE PER SERVER! For multiple channels give a
@@ -125,32 +156,32 @@ class IRCConnector(object):
         if not hasattr(channels, "__iter__"):
             raise TypeError("channels is not iterable!")
 
-        log("Iteration check done!")
+        log(u"Iteration check done!")
 
         # | The following commented-out code is known to be faulty and thus
         # | was commented out.
 
         # if socketindexbyaddress(server, port) != -1:
-        #     log("Warning: Trying to append socket of existing address!"
+        #     log(u"Warning: Trying to append socket of existing address!"
         #     return False
         #
-        # log("Check for duplicates done!"
+        # log(u"Check for duplicates done!"
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket(AF_INET, SOCK_STREAM)
 
-        log("Socket making done!")
+        log(u"Socket making done!")
 
         sock.connect((server, port))
 
-        log("Connected socket!")
+        log(u"Connected socket!")
 
         sock.sendall("USER %s * * :%s\r\n" % (ident, realname))
         if not has_account:
-            sock.sendall("NICK %s\r\n" % (account_name))
+            sock.sendall("NICK %s\r\n" % account_name)
         else:
-            sock.sendall("NICK %s\r\n" % (nickname))
+            sock.sendall("NICK %s\r\n" % nickname)
 
-        log("Sent first commands to socket!")
+        log(u"Sent first commands to socket!")
 
         # function used for breaking through all loops
         def waituntilnotice():
@@ -158,7 +189,10 @@ class IRCConnector(object):
             It's a solution to the \"break only innerest loop\" problem!"""
             buffering = ""
             while True:
-                x = sock.recv(1024)
+                x = sock.recv(1024).decode('utf-8')
+
+                if x == "":
+                    continue
 
                 log(x)
 
@@ -174,11 +208,11 @@ class IRCConnector(object):
                     y = x.split("\r\n")
                     y.pop(-1)
                 else:
-                    y = (x)
+                    y = x
 
                 for z in y:
                     try:
-                        compdata  = z.split(" ")[1]
+                        compdata = z.split(" ")[1]
                     except IndexError:
                         continue
                     if compdata == str(authnumeric):
@@ -186,30 +220,40 @@ class IRCConnector(object):
 
         waituntilnotice()
 
-        log("NickServ Notice found!")
+        log(u"NickServ Notice found!")
 
         if not has_account:
-            sock.sendall("PRIVMSG NickServ :REGISTER %s %s\r\n" % (password, email))
-            log("Made account!")
+            sock.sendall("PRIVMSG NickServ :REGISTER %s %s\r\n" %
+                         (password, email))
+            sock.sendall("PRIVMSG Q :HELLO %s %s\r\n" % (email, email))
+            log(u"Made account!")
 
-        sock.sendall("PRIVMSG NickServ :IDENTIFY %s %s\r\n" % (account_name, password))
+        try:
+            sock.sendall("AUTH %s %s\r\n" % (account_name, password[:10]))
+        except IndexError:
+            sock.sendall("AUTH %s %s\r\n" % (account_name, password))
+        sock.sendall("PRIVMSG NickServ :IDENTIFY %s %s\r\n" %
+                     (account_name, password))
 
-        log("Authenticated!")
+        log(u"Authenticated!")
 
-        if channels == None:
-            channels = ("#%shelp" % (nickname))
-            log("Channel defaulting done!")
+        if channels is None:
+            channels = ("#%shelp" % nickname)
+            log(u"Channel defaulting done!")
         else:
-            log("Channel defaulting check done!")
+            log(u"Channel defaulting check done!")
 
         for x in channels:
-            sock.sendall("JOIN %s\r\n" % (x))
+            sock.sendall("JOIN %s\r\n" % x)
 
-        log("Joined channels!")
+        log(u"Joined channels!")
 
-        self.connections.append([sock, IterableQueue(), IterableQueue(), master, nickname])
+        sock.setblocking(0)
 
-        log("Added to connections!")
+        self.connections.append([sock, IterableQueue(), IterableQueue(),
+                                 master, nickname, ident, server.split(".")[1]])
+
+        log(u"Added to connections!")
 
         return True
 
@@ -226,91 +270,111 @@ class IRCConnector(object):
 
         for x in xrange(len(connector.connectors)):
             connector.mainloop(x)"""
-        x = self.connections[index]
-        buffering = ""
-        log("Set buffering to none")
-        while buffering != None:
-            w = x[0].recv(4096)
-            log(w)
 
-            if not ( w.endswith("\n") or w.endswith("\r") or w.endswith("\r\n") ):
-                buffering = "%s%s" % (buffering, w)
-                continue
+        if not self.connections:
+            return
 
-            if buffering != "":
-                w = "%s%s" % (buffering, w)
-                buffering = None
+        else:
+            x = self.connections[index]
+            buffering = ""
+            log(u"Set buffering to none")
 
-            y = w.split("\n")
-            y.pop(-1)
+            y = []
 
-            break
+            while True:
 
-        for z in y:
-            x[1].put(z.strip("\r"))
-            if z.split(" ")[0] == "PING":
-                x[0].sendall("PONG :%s\r\n" % (z.split(":")[1]))
-                print "Sent PONG"
+                w = ""
 
-            try:
-                if z.split(" ")[0].strip(":") == "QUIT" or z.split(" ")[1] == "QUIT":
-                    self.connections[self.connections.index(x)][0].close()
-                    self.connections.remove(x)
+                try:
+                    w = x[0].recv(4096).encode('utf-8')
+                    log(u"Got message!")
+                except error:
+                    if len(self.connections[index][2]) > 0:
+                        return
+                    else:
+                        continue
 
-            except IndexError:
+                if not (w.endswith("\n") or w.endswith("\r") or
+                            w.endswith("\r\n")):
+                    buffering = "%s%s" % (buffering, w)
+                    continue
+
+                if buffering != "":
+                    w = "%s%s" % (buffering, w)
+
+                y = w.split("\n")
+                y.pop(-1)
+
+                break
+
+            for z in y:
+                log(z)
+                x[1].put(z.strip("\r"))
+                if z.split(" ")[0] == "PING":
+                    x[0].sendall("PONG :%s\r\n" % (z.split(":")[1]))
+                    log(u"Sent PONG")
 
                 try:
                     if z.split(" ")[0].strip(":") == "QUIT":
-                        self.connections[self.connections.index(x)][0].close()
-                        self.connections.remove(x)
+                        self.connections.pop(index)
 
                 except IndexError:
                     pass
 
-        print "Ended loop!"
+            log(u"Ended loop!")
 
-        sleep(0.5)
-
-    def relayoq(self, index):
+    def relayoutqueue(self, index, messages):
         """Call this after mainloop() and after parsing each of
         receiveAllMessages() messages.
 
         Parameters:
         - index: the index of the OutQueue (abbreviated OQ)"""
 
-        print "Sending OQ messages!"
+        log(u"Sending OQ messages!")
+
+        for x in messages:
+            try:
+                if x.split(":")[2].startswith("!"):
+                    print "Command found!"  # mainly breakpoint fodder
+            except IndexError:
+                pass
 
         worked = False
         try:
             v = self.connections[index][2].get(False)
             if v == "":
-                print "Error: Blank string in OQ!"
+                log(u"Error: Blank string in OQ!")
                 return
             worked = True
             log(v)
             self.connections[index][0].sendall(v)
         except Empty:
             if not worked:
-                print "No OQ messages sent! Wtf?"
+                log(u"No OQ messages sent! Wtf?")
             else:
-                print "Sent all OQ messages!"
+                log(u"Sent all OQ messages!")
             pass
 
-    def sendcommand(self, connectionindex = 0, command = ""):
+        sleep(0.5)
+
+    def sendcommand(self, connectionindex=0, command=""):
         """Sends a command to the IRC server.
 
         - connectionindex: the index of the connection. Usually in the order
-        you called addConnectionSocket().
+        you called addconnectionsocket().
 
         - command: the command string, including \":\" and \"PRIVMSG\" instead
         of \"MSG\" or \"SAY\". Don't include \"\\r\\n\", it's automatically added!"""
-        connections[connectionindex][2].put("%s\r\n"% (command))
+        self.connections[connectionindex][2].put("{0:s}\r\n".format(command))
 
-    def sendmessage(self, connectionindex = 0, target = "ChanServ", message = "Error: No message argument provided to bot!"):
+    def sendmessage(self,
+                    connectionindex=0,
+                    target="ChanServ",
+                    message="Error: No message argument provided to bot!"):
         """Sends a message to the target in the IRC server.
 
         - connectionindex: the index of the connection. Usually in the order
-        you called addConnectionSocket().
+        you called addconnectionsocket().
 
         - target: the target. Usually a channel name (like #python) (replaces SAY)
         or a nickname (replaces MSG).
@@ -318,53 +382,72 @@ class IRCConnector(object):
         Defaults to sending ChanServ commands for a good reason!
 
         - message: the message sent to the target. Self-explanatory, I hope."""
-        connections[connectionindex][2].put_nowait("PRIVMSG %s :%s\r\n" % (target, message))
+        self.connections[connectionindex][2].put_nowait("PRIVMSG %s :%s\r\n" %
+                                                        (target, message))
 
-    def disconnect(self, connectionindex = 0, message = "a GusPirc bot: The simplest Python low-level IRC interface"):
+    def disconnect(
+            self,
+            connectionindex=0,
+            message="a GusPirc bot: The simplest Python low-level IRC interface"
+    ):
         """Disconnects from the server in the index specified.
 
         - connectionindex: the index of the connection. Usually in the order
-        you called addConnectionSocket().
+        you called addconnectionsocket().
 
         - message: the quit message. Self-explanatory."""
-        connections[connectionindex][2].put_nowait("QUIT :%s\r\n") % (message)
+        self.connections[connectionindex][2].put_nowait("QUIT :%s\r\n") % (
+            message)
 
-    def receivelatestmessage(self, index = 0):
+    def receivelatestmessage(self, index=0):
         """Returns the last message from the queue of received messages from
         the IRC socket.
 
         - index: the index of the connection. Ususally in the order you called
-        addConnectionSocket()."""
+        addconnectionsocket()."""
         try:
             return self.connections[index][1].get(False)
         except Empty:
             pass
 
-    def socketindexbyaddress(self, address, port = 6667):
+    def sendnotice(self, index=0, noticetarget="", msg=""):
+        """Sends a notice to noticetarget.
+
+        Parameters:
+        - index: the index of the connection. Usually in the order you called
+        addconnectionsocket().
+
+        - noticetarget: which channel or whom to send the notice to.
+
+        - msg: the notice's message to send."""
+
+        self.sendcommand(index, "NOTICE %s :%s" % (noticetarget, msg))
+
+    def socketindexbyaddress(self, address, port=6667):
         """Returns the index of the IRC connection that is connected t
         address:port or -1 if there aren't any."""
-        if self.connections != []:
+        if self.connections:
             for x in self.connections:
                 if tuple(x.getsockname()[:2]) == (address, port):
                     return self.connections.index(x)
         return -1
 
-    def receiveallmessages(self, index = 0):
+    def receiveallmessages(self, index=0):
         """Returns all the messages from the queue in the
         connection.
 
         - index: the index of the connection. Usually in the order you called
-        addConnectionSocket()."""
+        addconnectionsocket()."""
 
         messages = []
 
         while True:
 
             try:
-                print "Receiving message!"
+                log(u"Receiving message!")
                 messages.append(self.connections[index][1].get(False))
             except Empty:
-                print "Empty!"
+                log(u"Empty!")
                 break
 
         return tuple(messages)
