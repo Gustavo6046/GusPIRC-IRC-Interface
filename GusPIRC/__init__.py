@@ -48,6 +48,10 @@ def log(msg):
 
     Reminder: msg must be a Unicode string!"""
     logfile = open("..\log.txt", "a", encoding="utf-8")
+    try:
+        msg = msg.decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
     x = u"[{0}]: {1}".format(strftime(u"%A %d - %X : GMT %Z"), msg)
     print x
     logfile.write(x)
@@ -178,18 +182,20 @@ class IRCConnector(object):
 
         log(u"Connected socket!")
 
-        sock.sendall("USER %s * * :%s\r\n" % (ident, realname))
         if not has_account:
-            sock.sendall("NICK %s\r\n" % account_name)
+            sock.sendall("NICK {0:s}\r\n".format(account_name))
+            sock.sendall("USER {0:s} * * :{1:s}\r\n".format(ident, realname))
         else:
-            sock.sendall("NICK %s\r\n" % nickname)
+            sock.sendall("PASS {0:s}:{1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
+            sock.sendall("USER {0:s} * * :{1:s}\r\n".format(ident, realname))
+            sock.sendall("NICK {0:s}\r\n".format(nickname))
 
         log(u"Sent first commands to socket!")
 
         # function used for breaking through all loops
         def waituntilnotice():
-            """Th== function == NOT to be called!
-            It's a solution to the \"break only innerest loop\" problem!"""
+            """This function is NOT to be called!
+            It's a solution to the "break only innerest loop" problem!"""
             buffering = u""
             while True:
                 x = sock.recv(1024).decode('utf-8')
@@ -205,11 +211,8 @@ class IRCConnector(object):
                     x = u"%s%s" % (buffering, x)
                     buffering = ""
 
-                if len(x.split(u"\r\n")) > 2:
-                    y = x.split(u"\r\n")
-                    y.pop(-1)
-                else:
-                    y = x
+                y = x.split(u"\r\n")
+                y.pop(-1)
 
                 for z in y:
 
@@ -227,22 +230,17 @@ class IRCConnector(object):
         log(u"NickServ Notice found!")
 
         if not has_account:
-            sock.sendall(u"PRIVMSG NickServ :REG==TER %s %s\r\n" %
-                         (password, email))
-            sock.sendall(u"PRIVMSG Q :HELLO %s %s\r\n" % (email, email))
+            sock.sendall(u"PRIVMSG NickServ :REG==TER {0:s} {1:s}\r\n".format(password, email))
+            sock.sendall(u"PRIVMSG Q :HELLO {0:s} {1:s}\r\n".format(email, email))
             log(u"Made account!")
 
         try:
-            sock.sendall("AUTH %s %s\r\n" % (account_name.encode('utf-8'), password[:10].encode('utf-8')))
+            sock.sendall("AUTH {0:s} {1:s}\r\n".format(account_name.encode('utf-8'), password[:10].encode('utf-8')))
 
         except IndexError:
-            sock.sendall("AUTH %s %s\r\n" % (account_name.encode('utf-8'), password.encode('utf-8')))
-        sock.sendall("PRIVMSG NickServ :IDENTIFY %s %s\r\n" %
-                     (account_name.encode('utf-8'), password.encode('utf-8')))
+            sock.sendall("AUTH {0:s} {1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
 
-        log(u"Authenticated!")
-
-        sleep(5)
+        sock.sendall("NICK {0:s}\r\n".format(nickname.encode('utf-8')))
 
         if channels == None:
             channels = (u"#%shelp" % nickname,)
@@ -252,6 +250,10 @@ class IRCConnector(object):
 
         for x in channels:
             sock.sendall("JOIN %s\r\n" % x.encode('utf-8'))
+
+        if not has_account:
+            sock.sendall("PASS {0:s}:{1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
+        sock.sendall("PRIVMSG NickServ IDENTIFY {0:s} {1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
 
         log(u"Joined channels!")
 
@@ -279,6 +281,7 @@ class IRCConnector(object):
             connector.mainloop(x)"""
 
         if not self.connections:
+            sleep(0.5)
             return
 
         else:
@@ -297,6 +300,7 @@ class IRCConnector(object):
                     if len(self.connections[index][2]) > 0:
                         return
                     else:
+                        sleep(0.25)
                         continue
 
                 if not (w.endswith(u"\n") or w.endswith(u"\r") or
@@ -346,7 +350,7 @@ class IRCConnector(object):
 
         worked = False
         try:
-            v = self.connections[index][2].get(False)
+            v = self.connections[index][2].get(False).decode('utf-8')
             if v == u"":
                 log(u"Error: Blank string in OQ!")
                 return
@@ -387,8 +391,10 @@ class IRCConnector(object):
         Defaults to sending ChanServ commands for a good reason!
 
         - message: the message sent to the target. Self-explanatory, I hope."""
-        self.connections[connectionindex][2].put_nowait("PRIVMSG %s :%s\r\n" %
-                                                        (target.encode('utf-8'), message.encode('utf-8')))
+        try:
+            self.connections[connectionindex][2].put_nowait("PRIVMSG {0:s} :{1:s}\r\n".format(target.encode('utf-8'), message.encode('utf-8')))
+        except UnicodeDecodeError:
+            self.connections[connectionindex][2].put_nowait("PRIVMSG {0:s} :{1:s}\r\n".format(target, message))
 
     def disconnect(
             self,
@@ -401,7 +407,7 @@ class IRCConnector(object):
         you called addconnectionsocket().
 
         - message: the quit message. Self-explanatory."""
-        self.connections[connectionindex][2].put_nowait("QUIT :%s\r\n") % (
+        self.connections[connectionindex][2].put_nowait("QUIT :%s\r\n" %
             message.encode('utf-8'))
 
     def receivelatestmessage(self, index=0):
@@ -411,7 +417,7 @@ class IRCConnector(object):
         - index: the index of the connection. Ususally in the order you called
         addconnectionsocket()."""
         try:
-            return self.connections[index][1].get(False).decode('utf-8')
+            return self.connections[index][1].get(False)
         except Empty:
             pass
 
@@ -450,7 +456,7 @@ class IRCConnector(object):
 
             try:
                 log(u"Receiving message!")
-                messages.append(self.connections[index][1].get(False).decode('utf-8'))
+                messages.append(self.connections[index][1].get(False))
             except Empty:
                 log(u"Empty!")
                 break

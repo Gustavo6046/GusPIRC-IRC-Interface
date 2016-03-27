@@ -10,16 +10,16 @@
 # Licence:. . . . . CC BY-NC-SA 3.0 International. . . . . . . . . . . . . . . . . .#
 # -----------------------------------------------------------------------------------#
 
-from json import dumps, loads
 from sys import exit, path
 from threading import Thread
+from json import dump, loads
 from guspirc import IRCConnector, log, clearlog
-from markovclasses import *
-
 
 def savestuff(perms, accounts, file_):
-    return open("%s.ui" % file_, "w").write("%s|%s" % (dumps(perms),
-                                                       dumps(accounts)))
+    file_ = open(file_, "w")
+    dump(perms, open("file_1.tmp", "w")), dump(accounts, open("file_2.tmp", "w"))
+    file_.write("{0}|{1}".format(open("file_1.tmp").read(), open("file_2.tmp").read()))
+    file_.close()
 
 
 def loadstuff(json):
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     path.insert(0, ".\plugins")
     log(u"Added plugins folder to path!")
 
-    tree = MarkovChain()
+    tree = {}
     log(u"Markov chain defined!")
 
     plugins = []
@@ -73,11 +73,11 @@ if __name__ == "__main__":
 
     def ioloop(i, connect, tre, plugi, wik):
 
-        perms = {}
-        accounts = {}
-        loggedusers = {}
-
         import msgparser
+
+        perms = msgparser.Permlevels()
+        accounts = {}
+        loggedusers = msgparser.LoggedUsers()
 
         while True:
 
@@ -113,7 +113,10 @@ if __name__ == "__main__":
                 else:
                     if b is not None:
                         tre, plugi, wik, perms, accounts, loggedusers = b
-                        savestuff(perms, accounts, u"server{0:s}".format(connector.connections[i][6]))
+                        try:
+                            savestuff(perms, accounts, open(u"server{0:s}".format(connector.connections[i][6]), "w"))
+                        except TypeError:
+                            pass
 
                 msgs.append(x)
 
