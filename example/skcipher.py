@@ -13,12 +13,12 @@ def ciphermsg(msg, key):
     except UnicodeDecodeError:
         raise NonAsciiMsgError
 
-    cipherresult = []
+    cipher_result = []
     for x in msg:
 
         try:
-            cipherresult.append(key[ord(x)])
+            cipher_result.append(key[ord(x)])
 
         except IndexError:
             raise NotEnoughCharactersInKeyError
-    return "".join(cipherresult)
+    return "".join(cipher_result)

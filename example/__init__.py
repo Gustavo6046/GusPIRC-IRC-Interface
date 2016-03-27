@@ -26,7 +26,7 @@ def loadstuff(json):
     print repr(json)
     return loads(json.split("|")[0]), loads(json.split("|")[1])
 
-if __name__ is "__main__":
+if __name__ == "__main__":
 
     clearlog()
 
@@ -99,7 +99,7 @@ if __name__ is "__main__":
                 print x
 
                 try:
-                    if x.split(":")[2].split(" ")[0] is "!reloadparser":
+                    if x.split(":")[2].split(" ")[0] == "!reloadparser":
                         reload(msgparser)
                         connect.sendmessage(i, x.split(" ")[2], "%s: Reloaded with success!" % (x.split("!")[0].strip(":")))
                 except IndexError:
