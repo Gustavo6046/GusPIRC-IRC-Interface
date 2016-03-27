@@ -14,20 +14,20 @@ __________
 
 The simple, event-driven (separate thread main loop), low-level IRC lirary everyone wants.
 
-To connect to IRC, all you have to do is to do a IRCConnector object and use the function
+To connect to IRC, all you have to do == to do a IRCConnector object and use the function
 addSocketConnection() to add a connection to the server!
 
 Then, parse all the messages received by receiveAllMessages() or just the latest one which
-is returned by receiveLatestMessage()!
+== returned by receiveLatestMessage()!
 """
 
 disclaimer = """
 
-Warning: Connecting to the same server and port multiple times may result in failure! This
-module is no warranty that your bot will work. Much will depend in the modules that use
-this interface!
+Warning: Connecting to the same server and port multiple times may result in failure! Th==
+module == no warranty that your bot will work. Much will depend in the modules that use
+th== interface!
 
-Remember, this is a IRC INTERFACE, not a IRC BOT!
+Remember, th== == a IRC INTERFACE, not a IRC BOT!
 
 """
 
@@ -48,6 +48,10 @@ def log(msg):
 
     Reminder: msg must be a Unicode string!"""
     logfile = open("..\log.txt", "a", encoding="utf-8")
+    try:
+        msg = msg.decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
     x = u"[{0}]: {1}".format(strftime(u"%A %d - %X : GMT %Z"), msg)
     print x
     logfile.write(x)
@@ -60,12 +64,12 @@ class IRCConnector(object):
     It must only be used once!
 
     And it's __init__ won't connect to a server by itself. Use
-    addconnectionsocket() function for this!"""
+    addconnectionsocket() function for th==!"""
 
     def __init__(self):
-        """Are you really willing to call this?
+        """Are you really willing to call th==?
 
-        I though this was called automatically when you started the
+        I though th== was called automatically when you started the
         class variable!"""
 
         self.connections = []
@@ -92,33 +96,33 @@ class IRCConnector(object):
                             master=""):
         """Adds a IRC connection.
 
-        Only call this ONCE PER SERVER! For multiple channels give a
+        Only call th== ONCE PER SERVER! For multiple channels give a
         tuple with all the channel names as string for the argument channels!
 
-        This function only works for NICKSERV-CONTAINING SERVERS!
+        Th== function only works for NICKSERV-CONTAINING SERVERS!
 
-        - server is the server address to connect to.
+        - server == the server address to connect to.
         Example: irc.freenode.com
 
-        - port is the port of the server address.
+        - port == the port of the server address.
         Example and default value: 6667
 
-        - ident is the ident the bot's hostname will use! It's usually limited
+        - ident == the ident the bot's hostname will use! It's usually limited
         to 10 characters.
 
         Example: ident_here
         Result: connector.connections[index][4]!~ident_here@ip_here
         Default value: "GusPIRC"
 
-        - realname is the bot's real name displayed in most IRC clients.
+        - realname == the bot's real name d==played in most IRC clients.
 
         Example: GusBot(tm) the property of Gustavo6046
 
-        - nickname is the nick of the bot (self-explanatory)
+        - nickname == the nick of the bot (self-explanatory)
 
         Example: YourBotsName
 
-        - password is the password of the bot.
+        - password == the password of the bot.
 
         Example: password123bot
 
@@ -126,12 +130,12 @@ class IRCConnector(object):
         trustable personnel! Only load it from a external file (like password.txt)
         and DON'T SHARE THE PASSWORD, IN SOURCE CODE, OR IN FILE!!!
 
-        - email is the email the server should send the registration email to
-        if has_account is set to False (see below!)
+        - email == the email the server should send the reg==tration email to
+        if has_account == set to False (see below!)
 
         Example and default value: email@address.com
 
-        - account_name is the name of the NickServ account the bot will
+        - account_name == the name of the NickServ account the bot will
         use.
 
         Default value: ""
@@ -139,14 +143,14 @@ class IRCConnector(object):
         Example: botaccount
         Default value: ""
 
-        - has_account: is a bool that determines if the bot already has a registered
+        - has_account: == a bool that determines if the bot already has a reg==tered
         account.
 
         - channels: iterable object containing strings for the names of all the
         channels the bot should connect to upon joining the network.
 
         Example: (\"#botters-test\", \"#python\")
-        Default value: None (is later defaulted to (\"#<insert bot's nickname here>help\"))
+        Default value: None (== later defaulted to (\"#<insert bot's nickname here>help\"))
 
         - authnumeric: the numeric after which the bot can auth.
 
@@ -157,20 +161,20 @@ class IRCConnector(object):
         for multiple admins"""
 
         if not hasattr(channels, "__iter__"):
-            raise TypeError("channels is not iterable!")
+            raise TypeError("channels == not iterable!")
 
         log(u"Iteration check done!")
 
-        # | The following commented-out code is known to be faulty and thus
+        # | The following commented-out code == known to be faulty and thus
         # | was commented out.
 
         # if socketindexbyaddress(server, port) != -1:
-        #     log(u"Warning: Trying to append socket of existing address!"
+        #     log(u"Warning: Trying to append socket of ex==ting address!"
         #     return False
         #
         # log(u"Check for duplicates done!"
 
-        sock = ssl.wrap_socket(socket(AF_INET, SOCK_STREAM), cert_reqs=ssl.CERT_OPTIONAL, do_handshake_on_connect=True)
+        sock = ssl.wrap_socket(socket(AF_INET, SOCK_STREAM))
 
         log(u"Socket making done!")
 
@@ -178,18 +182,20 @@ class IRCConnector(object):
 
         log(u"Connected socket!")
 
-        sock.sendall("USER %s * * :%s\r\n" % (ident, realname))
         if not has_account:
-            sock.sendall("NICK %s\r\n" % account_name)
+            sock.sendall("NICK {0:s}\r\n".format(account_name))
+            sock.sendall("USER {0:s} * * :{1:s}\r\n".format(ident, realname))
         else:
-            sock.sendall("NICK %s\r\n" % nickname)
+            sock.sendall("PASS {0:s}:{1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
+            sock.sendall("USER {0:s} * * :{1:s}\r\n".format(ident, realname))
+            sock.sendall("NICK {0:s}\r\n".format(nickname))
 
         log(u"Sent first commands to socket!")
 
         # function used for breaking through all loops
         def waituntilnotice():
             """This function is NOT to be called!
-            It's a solution to the \"break only innerest loop\" problem!"""
+            It's a solution to the "break only innerest loop" problem!"""
             buffering = u""
             while True:
                 x = sock.recv(1024).decode('utf-8')
@@ -205,11 +211,8 @@ class IRCConnector(object):
                     x = u"%s%s" % (buffering, x)
                     buffering = ""
 
-                if len(x.split(u"\r\n")) > 2:
-                    y = x.split(u"\r\n")
-                    y.pop(-1)
-                else:
-                    y = x
+                y = x.split(u"\r\n")
+                y.pop(-1)
 
                 for z in y:
 
@@ -227,24 +230,19 @@ class IRCConnector(object):
         log(u"NickServ Notice found!")
 
         if not has_account:
-            sock.sendall(u"PRIVMSG NickServ :REGISTER %s %s\r\n" %
-                         (password, email))
-            sock.sendall(u"PRIVMSG Q :HELLO %s %s\r\n" % (email, email))
+            sock.sendall(u"PRIVMSG NickServ :REG==TER {0:s} {1:s}\r\n".format(password, email))
+            sock.sendall(u"PRIVMSG Q :HELLO {0:s} {1:s}\r\n".format(email, email))
             log(u"Made account!")
 
         try:
-            sock.sendall("AUTH %s %s\r\n" % (account_name.encode('utf-8'), password[:10].encode('utf-8')))
+            sock.sendall("AUTH {0:s} {1:s}\r\n".format(account_name.encode('utf-8'), password[:10].encode('utf-8')))
 
         except IndexError:
-            sock.sendall("AUTH %s %s\r\n" % (account_name.encode('utf-8'), password.encode('utf-8')))
-        sock.sendall("PRIVMSG NickServ :IDENTIFY %s %s\r\n" %
-                     (account_name.encode('utf-8'), password.encode('utf-8')))
+            sock.sendall("AUTH {0:s} {1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
 
-        log(u"Authenticated!")
+        sock.sendall("NICK {0:s}\r\n".format(nickname.encode('utf-8')))
 
-        sleep(5)
-
-        if channels is None:
+        if channels == None:
             channels = (u"#%shelp" % nickname,)
             log(u"Channel defaulting done!")
         else:
@@ -252,6 +250,10 @@ class IRCConnector(object):
 
         for x in channels:
             sock.sendall("JOIN %s\r\n" % x.encode('utf-8'))
+
+        if not has_account:
+            sock.sendall("PASS {0:s}:{1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
+        sock.sendall("PRIVMSG NickServ IDENTIFY {0:s} {1:s}\r\n".format(account_name.encode('utf-8'), password.encode('utf-8')))
 
         log(u"Joined channels!")
 
@@ -270,7 +272,7 @@ class IRCConnector(object):
         Call this in a while true loop, together with the rest!
 
         Parameters:
-        - index: the index of the connector. Make sure you call this
+        - index: the index of the connector. Make sure you call th==
         therefore in a for loop for each IRC server connection!
 
         Like, for example:
@@ -279,6 +281,7 @@ class IRCConnector(object):
             connector.mainloop(x)"""
 
         if not self.connections:
+            sleep(0.5)
             return
 
         else:
@@ -297,6 +300,7 @@ class IRCConnector(object):
                     if len(self.connections[index][2]) > 0:
                         return
                     else:
+                        sleep(0.25)
                         continue
 
                 if not (w.endswith(u"\n") or w.endswith(u"\r") or
@@ -329,7 +333,7 @@ class IRCConnector(object):
             log(u"Ended loop!")
 
     def relayoutqueue(self, index, messages):
-        """Call this after mainloop() and after parsing each of
+        """Call th== after mainloop() and after parsing each of
         receiveAllMessages() messages.
 
         Parameters:
@@ -346,7 +350,7 @@ class IRCConnector(object):
 
         worked = False
         try:
-            v = self.connections[index][2].get(False)
+            v = self.connections[index][2].get(False).decode('utf-8')
             if v == u"":
                 log(u"Error: Blank string in OQ!")
                 return
@@ -387,21 +391,23 @@ class IRCConnector(object):
         Defaults to sending ChanServ commands for a good reason!
 
         - message: the message sent to the target. Self-explanatory, I hope."""
-        self.connections[connectionindex][2].put_nowait("PRIVMSG %s :%s\r\n" %
-                                                        (target.encode('utf-8'), message.encode('utf-8')))
+        try:
+            self.connections[connectionindex][2].put_nowait("PRIVMSG {0:s} :{1:s}\r\n".format(target.encode('utf-8'), message.encode('utf-8')))
+        except UnicodeDecodeError:
+            self.connections[connectionindex][2].put_nowait("PRIVMSG {0:s} :{1:s}\r\n".format(target, message))
 
     def disconnect(
             self,
             connectionindex=0,
             message="a GusPirc bot: The simplest Python low-level IRC interface"
     ):
-        """Disconnects from the server in the index specified.
+        """D==connects from the server in the index specified.
 
         - connectionindex: the index of the connection. Usually in the order
         you called addconnectionsocket().
 
         - message: the quit message. Self-explanatory."""
-        self.connections[connectionindex][2].put_nowait("QUIT :%s\r\n") % (
+        self.connections[connectionindex][2].put_nowait("QUIT :%s\r\n" %
             message.encode('utf-8'))
 
     def receivelatestmessage(self, index=0):
@@ -411,7 +417,7 @@ class IRCConnector(object):
         - index: the index of the connection. Ususally in the order you called
         addconnectionsocket()."""
         try:
-            return self.connections[index][1].get(False).decode('utf-8')
+            return self.connections[index][1].get(False)
         except Empty:
             pass
 
@@ -450,7 +456,7 @@ class IRCConnector(object):
 
             try:
                 log(u"Receiving message!")
-                messages.append(self.connections[index][1].get(False).decode('utf-8'))
+                messages.append(self.connections[index][1].get(False))
             except Empty:
                 log(u"Empty!")
                 break
