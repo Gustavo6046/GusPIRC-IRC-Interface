@@ -1,10 +1,12 @@
+# This is a hugely improved and GusPIRC-adaptated (in other words, HEAVILY MODIFIED) version
+# of Victor Vortex bot by OldCoder and mrtux.
+
 from argparse import ArgumentError
 from importlib import import_module
 from json import dumps, loads
-
+from skcipher import NonAsciiMsgError, NotEnoughCharactersInKeyError, ciphermsg
 from google import search
 from wikipedia import summary, search
-
 from guspirc import log
 from markovclasses import *
 
@@ -52,17 +54,17 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
          "shoots": "*shoots back at |*",
          "motherfucker": "No |, it's YOU! | IS the motherfucker!"})
     replies.update({"faggot":
-                        "No, you |, not him, or even me, despite my dumbass!",
-                    "lol":
-                        "olo",
-                    "mwah":
-                        "Oh no, | is evil! FIRE!",
-                    "...":
-                        "Think, |, think!",
-                    "GusBot, freak out now! Password: LUABRASIL":
-                        "HEYA PUSSIES | IS THE KING NOW !! YEAH EASTER EGG UNLEASHED !!! WOOOO\r\nTHIS IS AWESOME!!!!!!!!!"})
+                "No, you |, not him, or even me, despite my dumbass!",
+            "lol":
+                "olo",
+            "mwah":
+                "Oh no, | is evil! FIRE!",
+            "...":
+                "Think, |, think!",
+            "GusBot, freak out now! Passwordx   : LUABRASIL":
+                "HEYA PUSSIES | IS THE KING NOW !! YEAH EASTER EGG UNLEASHED !!! WOOOO\r\nTHIS IS AWESOME!!!!!!!!!"})
 
-    insults = ("Fuck you |!", "| is shit!", "Hey, | should go to hell!",
+    insults     = ("Fuck you |!", "| is shit!", "Hey, | should go to hell!",
                "| is a MOTHER MOTHER FUCKER!",
                "I shouldn't have motivated | aka Mr Fucked Man!",
                "Why is | so confident? That bitch!", "Die |!",
@@ -122,17 +124,23 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
 
             # detects message details
     try:
-        msgargs = ":".join(ircmsg.split(":")[2:]).split(" ")
-        msgchan = ircmsg.split(" ")[2]
-        msgmode = ircmsg.split(" ")[1]
-        msgsrc = ircmsg.split(" ")[0].strip(":")
-        msgnick = ircmsg.split(" ")[0].split("!")[0].strip(":")
-        msgident = ircmsg.split("!")[1].split("@")[0]
-        msghost = ircmsg.split("@")[1].split(" ")[0]
+        msgargs   = u":".join(ircmsg.split(u":")[2:]).split(u" ")
+        msgchan   = ircmsg.split(u" ")[2]
+        msgmode   = ircmsg.split(u" ")[1]
+        msgtarget = ircmsg.split(u" ")[3]
+        msgsrc    = ircmsg.split(u" ")[0].strip(u":")
+        msgnick   = ircmsg.split(u" ")[0].split(u"!")[0].strip(u":")
+        msgident  = ircmsg.split(u"!")[1].split(u"@")[0]
+        msghost   = ircmsg.split(u"@")[1].split(u" ")[0]
     except IndexError:
         pass  # ignore the message for now
 
+
     try:
+
+        if msgtarget == "GusBot" and msgmode == "KICK":
+            connection.sendcommand(index, "JOIN {0}".format(msgchan))
+
         if not "PRIVMSG" == msgmode:
             return tre, modules, wiki, permlevels, accounts, loggedusers
 
@@ -179,8 +187,9 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
                     index, msgchan,
                     "{0}: Error, not enough arguments!".format(msgnick))
 
+
                 # adds messages to lexical repository
-        if (msgargs[0].lower().startswith("!") and msgsrc != "{0:s}!~{1:s}@unnafiliated/{2:s}".format(
+        if not (msgargs[0].lower().startswith(u"!") and msgsrc != u"{0:s}!~{1:s}@unnafiliated/{2:s}".format(
                 connection.connections[index][4], connection.connections[index][5], connection.connections[index][4])):
             for x in xrange(1, len(msgargs) - 1):
                 if msgargs[x - 1] == msgargs[x] or msgargs[x - 1] == msgargs[x + 1] or msgargs[x + 1] == msgargs[x]:
@@ -191,20 +200,20 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
                 log(u"%s,%s,%s" % (msgargs[x - 1], msgargs[x], msgargs[x + 1]))
 
                 # joins a network
-        if "!connect" == msgargs[0].lower() and permlevels[loggedusers[msgnick]] >= 3:
+        if "!connect    " == msgargs[0].lower() and permlevels[loggedusers[msgnick]] >= 3:
             try:
                 connection.addconnectionsocket(
                     server=msgargs[1],
                     port=msgargs[2],
                     ident=msgargs[3],
-                    realname="GusBot(tm) the property of Gustavo6046",
-                    nickname="GusBot",
+                    realname=u"GusBot(tm) the property of Gustavo6046",
+                    nickname=u"GusBot",
                     password=msgargs[4],
-                    email="gugurehermann@gmail.com",
-                    account_name="GusBot",
+                    email=u"gugurehermann@gmail.com",
+                    account_name=u"GusBot",
                     has_account=True,
                     channels=tuple(msgargs[6:]),
-                    authnumeric=msgargs[5])
+                    authnumeric=int(msgargs[5]))
             except IndexError:
                 connection.sendmessage(
                     index, msgchan, "%s: Not enough arguments!" % (msgnick,))
@@ -213,9 +222,10 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
                 # kickes someone
         if "!kick" == msgargs[0].lower() and permlevels[loggedusers[msgnick]] >= 1:
             try:
+                kickmsg = u":".join(u" ".join(msgargs).split(u":")[1:])
                 connection.sendmessage(index, message="OP {0}".format(msgchan))
                 for x in msgargs[1:]:
-                    connection.sendmessage(index, message="KICK {0}".format(x))
+                    connection.sendcommand(index, "KICK {0} {1} :{2}".format(msgchan, x, kickmsg))
                 connection.sendmessage(index, message="DEOP {0}".format(msgchan))
             except IndexError:
                 connection.sendmessage(index, message="DEOP {0}".format(msgchan))
@@ -451,6 +461,24 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
             except IndexError:
                 connection.sendmessage(index, msgchan, "{0:s}: No argument given!".format(msgnick))
 
+        # Secret kick
+        if "!secretkick" == msgargs[0] and permlevels[loggedusers[msgnick]] >= 1:
+            try:
+                connection.sendmessage(index, message="OP {0}".format(msgchan))
+                for x in msgargs[1:-1]:
+                    connection.sendcommand(index, "KICK {0} {1}".format(msgchan, ciphermsg(msgargs[-1], x)))
+                connection.sendmessage(index, message="DEOP {0}".format(msgchan))
+
+            except IndexError:
+                connection.sendmessage(index, msgchan, "{0}: Not enough arguments!".format(msgnick))
+
+            except NotEnoughCharactersInKeyError:
+                connection.sendmessage(index, msgchan, "{0}: The key does not have all ASCII characters!")
+
+            except NonAsciiMsgError:
+                connection.sendmessage(index, msgchan,
+                                       "{0}: Currently only ASCII is supported. However you can use Unicode in the key!")
+
         # Help message
         if "!commands" == msgargs[0].lower() or "!help" == msgargs[0].lower() or "!list" == msgargs[0].lower() and \
                         permlevels[loggedusers[msgnick]] >= -1:
@@ -543,6 +571,30 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
 
         ## Account System ##
 
+
+        # Tells someone's permission level
+        if "!showperms" == msgargs[0] and permlevels[loggedusers[msgnick]] >= 0:
+
+            try:
+                theaccount = loggedusers[msgargs[1]]
+
+                if theaccount == "Guest":
+                    connection.sendmessage(index, msgchan,
+                                           u"{0:s}: {1} is in a guest account!!".format(msgnick, msgargs[1]))
+
+                else:
+                    connection.sendmessage(index, msgchan,
+                                           "{0:s}: {1}'s permission level is {2}.".format(msgnick, msgargs[1],
+                                                                                          permlevels[accounts[
+                                                                                              loggedusers[
+                                                                                                  msgargs[1]]]]))
+
+            except IndexError:
+                connection.sendmessage(index, msgchan, "{0}: Not enough arguments!".format(msgnick))
+
+            except KeyError:
+                connection.sendmessage(index, msgchan, "{0}: {1} has no account!".format(msgnick, msgargs[1]))
+
         # Tells someone's account
         if "!myaccount" == msgargs[0]:
 
@@ -563,7 +615,7 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
 
             if msgchan != "GusBot":
                 connection.sendmessage(index, msgnick,
-                                      "{0}: To register an account please privately message the bot!".format(msgnick))
+                                       "{0}: To register an account please privately message the bot!".format(msgnick))
                 return None
 
             try:
@@ -575,7 +627,7 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
 
             except IndexError:
                 connection.sendmessage(index, msgchan,
-                                      "{0}: Not enough arguments! One argument for account name, other for password!")
+                                       "{0}: Not enough arguments! One argument for account name, other for password!")
 
             return tre, modules, wiki, permlevels, accounts, loggedusers
 
@@ -584,7 +636,7 @@ def parsemsg(ircmsg, connection, index, tre, modules, wiki, permlevels, accounts
             try:
                 if msgchan != "GusBot":
                     connection.sendmessage(index, msgnick,
-                                          "{0}: To identify please send a private message to the bot.".format(msgnick))
+                                           "{0}: To identify please send a private message to the bot.".format(msgnick))
                     return None
 
                 elif accounts[msgargs[1]] == msgargs[2]:

@@ -13,7 +13,6 @@
 from json import dumps, loads
 from sys import exit, path
 from threading import Thread
-
 from guspirc import IRCConnector, log, clearlog
 from markovclasses import *
 
@@ -27,14 +26,14 @@ def loadstuff(json):
     print repr(json)
     return loads(json.split("|")[0]), loads(json.split("|")[1])
 
-if __name__ == "__main__":
+if __name__ is "__main__":
 
     clearlog()
 
     path.insert(0, ".\plugins")
     log(u"Added plugins folder to path!")
 
-        tree = MarkovChain()
+    tree = MarkovChain()
     log(u"Markov chain defined!")
 
     plugins = []
@@ -46,12 +45,8 @@ if __name__ == "__main__":
     threads = []
     wiki = []
 
-    # only one server at once (this is known to have some issue with multiple
-    # servers)
-
     connector.addconnectionsocket(
         server="irc.freenode.org",
-        port=6667,
         ident="GusUtils",
         realname="GusBot(tm) the property of Gustavo6046",
         nickname="GusBot",
@@ -63,7 +58,6 @@ if __name__ == "__main__":
         authnumeric=376)
     connector.addconnectionsocket(
         server="irc.zandronum.com",
-        port=6667,
         ident="GusUtils",
         realname="GusBot(tm) the property of Gustavo6046",
         nickname="GusBot",
@@ -105,7 +99,7 @@ if __name__ == "__main__":
                 print x
 
                 try:
-                    if x.split(":")[2].split(" ")[0] == "!reloadparser":
+                    if x.split(":")[2].split(" ")[0] is "!reloadparser":
                         reload(msgparser)
                         connect.sendmessage(i, x.split(" ")[2], "%s: Reloaded with success!" % (x.split("!")[0].strip(":")))
                 except IndexError:
@@ -113,7 +107,7 @@ if __name__ == "__main__":
 
                 b = msgparser.parsemsg(x, connect, i, tre, plugi, wik, perms, accounts, loggedusers)
 
-                if b == False:
+                if b is False:
                     exit(0)
 
                 else:
