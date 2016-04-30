@@ -101,14 +101,14 @@ class IRCConnector(object):
 
         Th== function only works for NICKSERV-CONTAINING SERVERS!
 
-        - server == the server address to connect to.
+        - server == the irc server to connect to.
         Example: irc.freenode.com
 
-        - port == the port of the server address.
+        - port == the port of the irc server.
         Example and default value: 6667
 
         - ident == the ident the bot's hostname will use! It's usually limited
-        to 10 characters.
+        to 10 characters. (unless identd is running)
 
         Example: ident_here
         Result: connector.connections[index][4]!~ident_here@ip_here
@@ -122,15 +122,15 @@ class IRCConnector(object):
 
         Example: YourBotsName
 
-        - password == the password of the bot.
+        - password == the nickserv password of the bot.
 
         Example: password123bot
 
-        USE WITH CAUTION! Don't share the password to anyone! Only to extremely
+        USE WITH CAUTION! Don't share the password with anyone! Only share to extremely
         trustable personnel! Only load it from a external file (like password.txt)
         and DON'T SHARE THE PASSWORD, IN SOURCE CODE, OR IN FILE!!!
 
-        - email == the email the server should send the reg==tration email to
+        - email == the email the server should send the nickserv reg==tration email to
         if has_account == set to False (see below!)
 
         Example and default value: email@address.com
